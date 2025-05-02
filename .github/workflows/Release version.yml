@@ -1,0 +1,54 @@
+name: Generar una release cuando cambie el contenido de main
+on:
+  push:
+    branches:
+      - main
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Configurar Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.18.0
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar Semantic Release
+        run: npx semantic-release
+
+      - name: Checkout develop con los cambios
+        run: |
+          git fetch origin develop
+          git checkout -b develop origin/develop
+
+      - name: Pull main en develop
+        run: |
+          git pull origin main --no-edit
+
+      - name: Crear Pull Request main → develop
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          commit-message: "chore: sync main into develop"
+          branch: sync-main-into-develop
+          title: "🔄 Merge main into develop"
+          body: |
+            Este PR sincroniza `develop` con los últimos cambios de `main` después de un release automático.
+          base: develop
